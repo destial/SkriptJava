@@ -1,0 +1,10 @@
+name: SkriptJava
+version: '${project.version}'
+main: xyz.destiall.skriptjava.SkriptJava
+authors: [ destiall ]
+description: SkriptJava
+website: https://www.destial.xyz
+api-version: 1.13
+commands:
+  skriptjava:
+    description: SkriptJava
