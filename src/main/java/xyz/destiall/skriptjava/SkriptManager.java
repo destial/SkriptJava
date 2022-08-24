@@ -16,12 +16,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-class SkriptManager {
+public class SkriptManager {
     private final SkriptJava skriptJava;
     private final HashMap<Class<?>, Listener> scriptListeners;
-    private final HashMap<Class<?>, SkriptCommand> scriptCommands;
+    private final HashMap<Class<?>, SkriptCommandWrapper> scriptCommands;
     private final Engine engine;
     private SimpleCommandMap reflectedCommandMap;
+    private Map<String, Command> knownCommands;
 
     public SkriptManager(SkriptJava skriptJava) {
         this.skriptJava = skriptJava;
@@ -84,7 +85,7 @@ class SkriptManager {
             }
 
             if (reflectedCommandMap != null && scriptCommands.containsKey(script.getCompiledClass())) {
-                SkriptCommand cmd = scriptCommands.get(script.getCompiledClass());
+                SkriptCommandWrapper cmd = scriptCommands.get(script.getCompiledClass());
                 cmd.setExecutor(null);
                 unregisterCommand(cmd);
                 scriptCommands.remove(script.getCompiledClass());
@@ -135,36 +136,57 @@ class SkriptManager {
 
     public void unload() {
         scriptListeners.clear();
-        for (SkriptCommand cmd : scriptCommands.values()) {
+        for (SkriptCommandWrapper cmd : scriptCommands.values()) {
             unregisterCommand(cmd);
         }
         scriptCommands.clear();
-        HandlerList.unregisterAll(skriptJava);
         engine.removeAll();
         Bukkit.getServer().getPluginCommand("skriptjava").setExecutor(null);
     }
 
-    private void unregisterCommand(SkriptCommand cmd) {
+    private void unregisterCommand(SkriptCommandWrapper cmd) {
         if (reflectedCommandMap == null) return;
         try {
             try {
                 cmd.unregister(reflectedCommandMap);
-            } catch (Exception ignored) {} // Probably has no unregister method
+            } catch (Exception ignored) {}
 
-            try {
-                Field knownCmdsField = reflectedCommandMap.getClass().getField("knownCommands");
-                knownCmdsField.setAccessible(true);
-                Map<String, Command> knownCommands = (Map<String, Command>) knownCmdsField.get(reflectedCommandMap);
-                knownCommands.remove(cmd.getName());
-                knownCommands.remove("skriptjava:" + cmd.getName());
+            if (knownCommands == null) {
+                try {
+                    Field knownCmdsField = reflectedCommandMap.getClass().getDeclaredField("knownCommands");
+                    knownCmdsField.setAccessible(true);
+                    knownCommands = (Map<String, Command>) knownCmdsField.get(reflectedCommandMap);
+                } catch (Exception ignored1) {}
 
-            } catch (Exception ignored1) { // No idea why it can't find field, so using methods.
-                Method knownCmdsMethod = reflectedCommandMap.getClass().getDeclaredMethod("getKnownCommands");
-                knownCmdsMethod.setAccessible(true);
-                Map<String, Command> knownCommands = (Map<String, Command>) knownCmdsMethod.invoke(reflectedCommandMap);
-                knownCommands.remove(cmd.getName());
-                knownCommands.remove("skriptjava:" + cmd.getName());
-            } // At this point, the command should be fully removed from the command map.
+                if (knownCommands == null) {
+                    try {
+                        Field knownCmdsField = reflectedCommandMap.getClass().getField("knownCommands");
+                        knownCmdsField.setAccessible(true);
+                        knownCommands = (Map<String, Command>) knownCmdsField.get(reflectedCommandMap);
+                    } catch (Exception ignored2) {}
+                }
+
+                if (knownCommands == null) {
+                    try {
+                        Method knownCmdsMethod = reflectedCommandMap.getClass().getDeclaredMethod("getKnownCommands");
+                        knownCmdsMethod.setAccessible(true);
+                        knownCommands = (Map<String, Command>) knownCmdsMethod.invoke(reflectedCommandMap);
+                    } catch (Exception ignored3) {}
+                }
+
+                if (knownCommands == null) {
+                    try {
+                        Method knownCmdsMethod = reflectedCommandMap.getClass().getMethod("getKnownCommands");
+                        knownCmdsMethod.setAccessible(true);
+                        knownCommands = (Map<String, Command>) knownCmdsMethod.invoke(reflectedCommandMap);
+                    } catch (Exception ignored4) {}
+                }
+            }
+
+            // At this point, the knownCommand map should not be null.
+            knownCommands.remove(cmd.getName());
+            knownCommands.remove("skriptjava:" + cmd.getName());
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -177,7 +199,7 @@ class SkriptManager {
             getCommand.setAccessible(true);
             if (getCommand.getReturnType() != String.class) throw new ScriptException("getCommand does not return a String");
             String name = (String) getCommand.invoke(instance.getInstance());
-            SkriptCommand cmd = new SkriptCommand(name, (CommandExecutor) instance.getInstance());
+            SkriptCommandWrapper cmd = new SkriptCommandWrapper(name, (CommandExecutor) instance.getInstance());
             reflectedCommandMap.register("skriptjava", cmd);
             scriptCommands.put(instance.getCompiledClass(), cmd);
         } catch (Exception e) {

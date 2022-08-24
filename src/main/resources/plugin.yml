@@ -5,6 +5,7 @@ authors: [ destiall ]
 description: SkriptJava
 website: https://www.destial.xyz
 api-version: 1.13
+load: POSTWORLD
 commands:
   skriptjava:
     description: SkriptJava

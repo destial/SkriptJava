@@ -1,5 +1,7 @@
 package xyz.destiall.skriptjava;
 
+import org.bukkit.Bukkit;
+
 import javax.script.ScriptException;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -36,14 +38,25 @@ public class Engine {
         diagnostics = new DiagnosticCollector<>();
         StandardJavaFileManager standardFileManager = compiler.getStandardFileManager(diagnostics, null, null);
         scriptMemoryManager = new ScriptMemoryManager(standardFileManager, getClass().getClassLoader());
+        reloadLibraries();
+    }
+
+    public void reloadLibraries() {
+        File plugins = new File(System.getProperty("user.dir"), "plugins" + File.separator);
+        List<File> dependencies = FileIO.traverse(plugins, f -> f.getName().endsWith(".jar"));
 
         File library = new File(System.getProperty("user.dir"), "libraries" + File.separator);
         if (library.exists()) {
             SkriptJava.getPlugin().getLogger().info("Adding libraries to class path");
-            URI uri = new File("").toURI();
-            String classPath = FileIO.traverse(library, (f) -> f.getName().endsWith(".jar")).stream().map(f -> "./" + uri.relativize(f.toURI()).getPath()).collect(Collectors.joining(";"));
-            compileOptions = Arrays.asList("-cp", classPath);
+            dependencies.addAll(FileIO.traverse(library, f -> f.getName().endsWith(".jar")));
+        } else {
+            File source = new File(Bukkit.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            dependencies.add(source);
         }
+
+        URI uri = new File("").toURI();
+        String classPath = dependencies.stream().map(f -> "./" + uri.relativize(f.toURI()).getPath()).collect(Collectors.joining(";"));
+        compileOptions = Arrays.asList("-cp", classPath);
     }
 
     public Set<String> getNames() {
