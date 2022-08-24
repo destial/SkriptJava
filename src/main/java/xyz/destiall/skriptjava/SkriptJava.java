@@ -4,21 +4,26 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class SkriptJava extends JavaPlugin implements CommandExecutor {
-    private SimpleSkript skript;
-
+    private SkriptManager skriptManager;
+    private static SkriptJava plugin;
     @Override
     public void onEnable() {
+        plugin = this;
         if (!getDataFolder().exists()) {
             getDataFolder().mkdir();
             saveResource("HelloWorld.java", false);
         }
+        skriptManager = new SkriptManager(this);
+        skriptManager.load();
+    }
 
-        skript = new SimpleSkript(this);
-        skript.execute();
+    public static SkriptJava getPlugin() {
+        return plugin;
     }
 
     @Override
     public void onDisable() {
-        skript.unload();
+        skriptManager.unload();
+        plugin = null;
     }
 }

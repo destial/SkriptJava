@@ -34,11 +34,6 @@ public class HelloWorld implements Listener, CommandExecutor {
      */
     public void load() {
         System.out.println("Hello World! This is a Demo Java Skript");
-        skriptJava.getServer().getScheduler().runTaskTimer(skriptJava, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                player.sendMessage("You can even run scheduled scripts!");
-            }
-        }, 0L, 20L);
     }
 
     /**
@@ -69,6 +64,7 @@ public class HelloWorld implements Listener, CommandExecutor {
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendMessage(name + " (" + uuid + ") has joined the server!");
         }
+        Bukkit.getConsoleSender().sendMessage(name + " (" + uuid + ") has joined the server!");
     }
 
     @Override

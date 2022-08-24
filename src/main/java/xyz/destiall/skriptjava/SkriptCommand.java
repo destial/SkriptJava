@@ -4,7 +4,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
-class SkriptCommand extends Command {
+public class SkriptCommand extends Command {
     private CommandExecutor executor;
     protected SkriptCommand(String name, CommandExecutor executor) {
         super(name);
