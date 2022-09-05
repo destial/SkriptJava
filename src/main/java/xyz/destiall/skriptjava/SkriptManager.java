@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SkriptManager {
+public final class SkriptManager {
     private final SkriptJava skriptJava;
     private final HashMap<Class<?>, Listener> scriptListeners;
     private final HashMap<Class<?>, SkriptCommandWrapper> scriptCommands;
@@ -40,8 +40,7 @@ public class SkriptManager {
 
             Object instance = skript.getInstance();
             if (instance instanceof Listener) {
-                Bukkit.getPluginManager().registerEvents((Listener) instance, skriptJava);
-                scriptListeners.put(skript.getCompiledClass(), ((Listener) instance));
+                registerListener(skript);
             }
 
             if (instance instanceof CommandExecutor) {
@@ -76,22 +75,17 @@ public class SkriptManager {
     }
 
     public void unloadScript(Skript script) {
-        Object instance = script.getInstance();
         try {
-            Listener listener = scriptListeners.get(script.getCompiledClass());
-            if (listener != null) {
-                HandlerList.unregisterAll(listener);
-                scriptListeners.remove(script.getCompiledClass());
+            Object instance = script.getInstance();
+            if (instance instanceof Listener) {
+                unregisterListener(script);
             }
 
-            if (reflectedCommandMap != null && scriptCommands.containsKey(script.getCompiledClass())) {
-                SkriptCommandWrapper cmd = scriptCommands.get(script.getCompiledClass());
-                cmd.setExecutor(null);
-                unregisterCommand(cmd);
-                scriptCommands.remove(script.getCompiledClass());
+            if (instance instanceof CommandExecutor) {
+                unregisterCommand(script);
             }
-            Method unload = script.getCompiledClass().getDeclaredMethod("unload");
-            unload.invoke(instance);
+
+            script.unload();
 
             engine.removeScript(script);
         } catch (Exception e) {
@@ -104,23 +98,21 @@ public class SkriptManager {
             Field cmdMapField = Bukkit.getServer().getClass().getDeclaredField("commandMap");
             cmdMapField.setAccessible(true);
             reflectedCommandMap = (SimpleCommandMap) cmdMapField.get(Bukkit.getServer());
-            cmdMapField.setAccessible(false);
         } catch (Exception e) {
             e.printStackTrace();
         }
         Bukkit.getServer().getPluginCommand("skriptjava").setExecutor(new SkriptInternalCommand(this));
 
-        File[] fileScripts = skriptJava.getDataFolder().listFiles((f, n) -> n.endsWith(".java"));
+        File[] fileScripts = skriptJava.getDataFolder().listFiles((f, n) -> n.toLowerCase().endsWith(".java"));
         if (fileScripts == null) return;
         try {
             List<Skript> skripts = engine.compileAll(Arrays.asList(fileScripts));
             for (Skript skript : skripts) {
                 Object instance = skript.getInstance();
                 if (instance instanceof Listener) {
-                    Bukkit.getPluginManager().registerEvents((Listener) instance, skriptJava);
-                    scriptListeners.put(skript.getCompiledClass(), (Listener) instance);
-                }
+                    registerListener(skript);
 
+                }
                 if (instance instanceof CommandExecutor) {
                     registerCommand(skript);
                 }
@@ -135,6 +127,9 @@ public class SkriptManager {
     }
 
     public void unload() {
+        for (Listener listener : scriptListeners.values()) {
+            unregisterListener(listener);
+        }
         scriptListeners.clear();
         for (SkriptCommandWrapper cmd : scriptCommands.values()) {
             unregisterCommand(cmd);
@@ -142,6 +137,27 @@ public class SkriptManager {
         scriptCommands.clear();
         engine.removeAll();
         Bukkit.getServer().getPluginCommand("skriptjava").setExecutor(null);
+    }
+
+    private void registerListener(Skript skript) {
+        Bukkit.getPluginManager().registerEvents((Listener) skript.getInstance(), skriptJava);
+        scriptListeners.put(skript.getCompiledClass(), skriptJava);
+    }
+
+    private void unregisterListener(Skript skript) {
+        HandlerList.unregisterAll((Listener) skript.getInstance());
+        scriptListeners.remove(skript.getCompiledClass());
+    }
+
+    private void unregisterListener(Listener listener) {
+        HandlerList.unregisterAll(listener);
+    }
+
+    private void unregisterCommand(Skript skript) {
+        SkriptCommandWrapper cmd = scriptCommands.get(skript.getCompiledClass());
+        cmd.setExecutor(null);
+        unregisterCommand(cmd);
+        scriptCommands.remove(skript.getCompiledClass());
     }
 
     private void unregisterCommand(SkriptCommandWrapper cmd) {
@@ -216,7 +232,7 @@ public class SkriptManager {
             for (Skript skript : skripts) {
                 Object instance = skript.getInstance();
                 if (instance instanceof Listener) {
-                    Bukkit.getPluginManager().registerEvents((Listener) instance, skriptJava);
+                    registerListener(skript);
                 }
 
                 if (instance instanceof CommandExecutor) {

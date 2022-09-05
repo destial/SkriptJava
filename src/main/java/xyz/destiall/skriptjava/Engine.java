@@ -234,6 +234,7 @@ public class Engine {
     public void removeAll() {
         for (ScriptClassLoader loader : loaders.values()) {
             try {
+                loader.script.unload();
                  loader.close();
             } catch (Exception e) {
                 e.printStackTrace();
